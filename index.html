@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Salon — Chat P2P en temps réel</title>
+  <meta name="description" content="Discutez en temps réel, directement de navigateur à navigateur. Gratuit, sans inscription, sans serveur." />
+  <meta name="theme-color" content="#0a0c11" />
+
+  <!-- Défense en profondeur contre le XSS : seuls nos scripts + le CDN de Trystero sont autorisés -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 script-src 'self' https://esm.run https://cdn.jsdelivr.net;
+                 style-src 'self' https://fonts.googleapis.com;
+                 font-src https://fonts.gstatic.com;
+                 img-src 'self' https: data:;
+                 connect-src 'self' https: wss:;
+                 object-src 'none'; base-uri 'none'; form-action 'none';" />
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💬%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============ Barre promo de votre écosystème d'outils ============ -->
+  <div id="ecosystem-promo-bar" role="complementary" aria-label="Nos autres outils">
+    <!-- 👉 Remplacez le href par l'URL de votre page d'outils -->
+    <!--<a id="ecosystem-promo-link" href="https://example.com" target="_blank" rel="noopener">
+      🔥 Découvrez nos autres outils gratuits →
+    </a>
+  -->
+    <button id="promo-close" class="promo-close" type="button" aria-label="Masquer la barre">×</button>
+  </div>
+
+  <!-- ============ LOBBY ============ -->
+  <main id="lobby" class="screen lobby">
+    <div class="lobby-card glass">
+      <div class="brand">
+        <span class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>
+        </span>
+        <span class="brand-name">Salon</span>
+      </div>
+
+      <h1>Créer ou rejoindre un salon</h1>
+      <p class="lead">Discutez en temps réel, directement de navigateur à navigateur. Sans inscription, sans serveur.</p>
+
+      <p id="invite-note" class="invite-note" hidden></p>
+
+      <form id="join-form" novalidate>
+        <label class="field">
+          <span>Pseudo</span>
+          <input id="name-input" type="text" maxlength="24" autocomplete="nickname" placeholder="Ex : Alex" required />
+        </label>
+        <label class="field">
+          <span>Code du salon</span>
+          <input id="code-input" type="text" maxlength="12" autocomplete="off" autocapitalize="characters"
+                 spellcheck="false" placeholder="Ex : K7Q2XM" />
+        </label>
+        <p id="lobby-error" class="form-error" role="alert"></p>
+        <button id="join-btn" class="btn btn-primary btn-block" type="submit">Rejoindre le salon</button>
+      </form>
+
+      <div class="divider"><span>ou</span></div>
+
+      <button id="random-btn" class="btn btn-ghost btn-block" type="button">🎲 Créer un salon aléatoire</button>
+
+      <ul class="features">
+        <li>🔒 Chiffré (WebRTC)</li>
+        <li>⚡ Temps réel</li>
+        <li>🕊️ Aucun message stocké</li>
+      </ul>
+    </div>
+  </main>
+
+  <!-- ============ CHAT ============ -->
+  <section id="chat" class="screen chat" hidden>
+    <aside id="sidebar" class="sidebar glass" aria-label="Participants">
+      <div class="sidebar-top">
+        <div class="brand brand-sm">
+          <span class="brand-logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>
+          </span>
+          <span class="brand-name">Salon</span>
+        </div>
+        <div class="room-chip">
+          <span class="room-chip-label">Code du salon</span>
+          <strong data-room-code></strong>
+        </div>
+        <button class="btn btn-primary btn-sm btn-block" type="button" data-copy-link>🔗 Copier le lien d'invitation</button>
+      </div>
+
+      <div class="sidebar-section">
+        <h2 class="section-title">Utilisateurs en ligne <span class="count-badge" data-online-count>1</span></h2>
+        <ul id="user-list" class="user-list"></ul>
+      </div>
+
+      <button id="leave-btn" class="btn btn-danger-ghost btn-block" type="button">Quitter le salon</button>
+    </aside>
+
+    <div id="backdrop" class="backdrop"></div>
+
+    <div class="chat-main">
+      <header class="chat-header glass">
+        <button id="menu-btn" class="icon-btn only-mobile" type="button" aria-label="Afficher les participants">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="chat-title">
+          <h1><span class="hash">#</span><span data-room-code></span></h1>
+          <p class="chat-status"><span id="status-dot" class="status-dot"></span><span id="conn-status">Connexion…</span></p>
+        </div>
+        <div class="header-actions">
+          <button id="online-pill" class="pill" type="button" aria-label="Utilisateurs en ligne">
+            <span class="pill-dot"></span><span data-online-count>1</span><span class="hide-xs">&nbsp;en ligne</span>
+          </button>
+          <button id="sound-btn" class="icon-btn" type="button" aria-pressed="true" aria-label="Son des notifications">🔔</button>
+          <button class="icon-btn" type="button" data-copy-link aria-label="Copier le lien d'invitation" title="Copier le lien d'invitation">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="messages-wrap">
+        <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+        <button id="jump-btn" class="jump-btn" type="button" hidden>Nouveaux messages ↓</button>
+      </div>
+
+      <div id="typing" class="typing" aria-live="polite">
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span id="typing-text"></span>
+      </div>
+
+      <form id="composer" class="composer glass" autocomplete="off">
+        <div id="emoji-panel" class="emoji-panel glass" hidden></div>
+        <button id="emoji-btn" class="icon-btn" type="button" aria-label="Emojis" aria-expanded="false">😊</button>
+        <textarea id="text-input" rows="1" maxlength="2000"
+                  placeholder="Écrire un message… (collez un lien d'image ou de GIF)"
+                  aria-label="Message"></textarea>
+        <button id="send-btn" class="btn btn-primary send-btn" type="submit" aria-label="Envoyer">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+          <span class="hide-xs">Envoyer</span>
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
